@@ -4,7 +4,6 @@ from bs4 import BeautifulSoup
 import time
 from urllib.parse import urljoin
 import ssl
-import datetime
 
 # Create a custom SSL context that doesn't verify certificates
 ssl_context = ssl.create_default_context()
@@ -45,7 +44,6 @@ def preserve_formatting(element):
 async def scrape_press_release(session, url):
     soup = await get_soup(session, url)
     
-    # Scrape the title
     title_div = soup.find('div', class_='block--pocan-evo-custom-62-page-title')
     if title_div:
         title = title_div.find('h1', class_='display-4')
@@ -53,7 +51,6 @@ async def scrape_press_release(session, url):
     else:
         title_text = 'No title found'
     
-    # Scrape the date and press release tag
     meta_div = soup.find('div', class_='evo-create-type')
     if meta_div:
         date = meta_div.find('div', class_='col-auto')
@@ -63,7 +60,6 @@ async def scrape_press_release(session, url):
         date_text = 'No date found'
         pr_tag = 'No PR tag found'
     
-    # Scrape the main content
     content = soup.find('div', class_='evo-press-release__body')
     if content:
         text = preserve_formatting(content)
@@ -93,11 +89,8 @@ async def scrape_page(session, base_url, page):
 
 async def scrape_all_press_releases(base_url, max_concurrent=5):
     all_releases = []
-    page = 1
+    page = 0
     connector = aiohttp.TCPConnector(ssl=ssl_context)
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"sanders_press_releases_{timestamp}.txt"
-    
     async with aiohttp.ClientSession(connector=connector) as session:
         while True:
             page_releases = await scrape_page(session, base_url, page)
@@ -106,7 +99,7 @@ async def scrape_all_press_releases(base_url, max_concurrent=5):
             all_releases.extend(page_releases)
             
             # Save after each page
-            with open(filename, 'a', encoding='utf-8') as f:
+            with open('pocan_press_releases.txt', 'a', encoding='utf-8') as f:
                 for release in page_releases:
                     f.write(release)
             
@@ -114,13 +107,12 @@ async def scrape_all_press_releases(base_url, max_concurrent=5):
             print(f"Moving to page {page}")
             await asyncio.sleep(2)  # Short delay between pages
     
-    return all_releases, filename
+    return all_releases
 
 if __name__ == "__main__":
-    base_url = "https://www.sanders.senate.gov/media/press-releases/"
+    base_url = "https://pocan.house.gov/media-center"
     start_time = time.time()
-    all_releases, filename = asyncio.run(scrape_all_press_releases(base_url))
+    all_releases = asyncio.run(scrape_all_press_releases(base_url))
     end_time = time.time()
     print(f"Total press releases scraped: {len(all_releases)}")
-    print(f"Press releases saved to: {filename}")
     print(f"Total time taken: {end_time - start_time:.2f} seconds")
