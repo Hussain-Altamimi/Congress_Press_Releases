@@ -22,18 +22,8 @@ def preserve_formatting(element):
         return "No content found"
     
     formatted_text = ""
-    for child in element.descendants:
-        if child.name == 'p':
-            text = child.get_text(strip=True)
-            if text:
-                formatted_text += text + "\n\n"
-        elif child.name == 'br':
-            formatted_text += "\n"
-        elif child.string and child.string.strip():
-            formatted_text += child.string.strip() + "\n"
-    
-    while "\n\n\n" in formatted_text:
-        formatted_text = formatted_text.replace("\n\n\n", "\n\n")
+    for child in element.find_all('p'):
+        formatted_text += child.get_text(strip=True) + "\n\n"
     
     return formatted_text.strip()
 
@@ -41,39 +31,38 @@ async def scrape_press_release(session, url):
     soup = await get_soup(session, url)
     
     # Scrape the title
-    title_elem = soup.find('h1', class_='elementor-heading-title') or soup.find('h1', class_='display-4')
+    title_elem = soup.find('h1', class_='display-4')
     title_text = title_elem.text.strip() if title_elem else 'No title found'
     
     # Scrape the date
-    date_elem = soup.find('span', class_='elementor-icon-list-text', attrs={'class': 'elementor-post-info__item--type-date'})
-    if not date_elem:
-        date_elem = soup.find('div', class_='evo-create-type')
-        if date_elem:
-            date_elem = date_elem.find('div', class_='col-auto')
-    date_text = date_elem.text.strip() if date_elem else 'No date found'
-    
-    # Scrape the subtitle (if exists)
-    subtitle_elem = soup.find('h4', style='text-align: center;')
-    subtitle_text = subtitle_elem.text.strip() if subtitle_elem else ''
+    date_elem = soup.find('div', class_='evo-create-type')
+    if date_elem:
+        date_text = date_elem.find('div', class_='col-auto').text.strip()
+    else:
+        date_text = 'No date found'
     
     # Scrape the main content
-    content = soup.find('div', class_='elementor-text-editor') or soup.find('div', class_='evo-press-release__body')
-    if not content:
-        content = soup.find('div', class_='elementor-widget-container')
-    
+    content = soup.find('div', class_='evo-press-release__body')
     if content:
         text = preserve_formatting(content)
     else:
         print(f"No content found for {url}")
         text = 'No content found'
     
-    return f"Title: {title_text}\nDate: {date_text}\nSubtitle: {subtitle_text}\n\nContent:\n{text}\n\n==\n"
+    # Scrape the issues (if present)
+    issues_elem = soup.find('span', class_='field__label', string='Issues:')
+    if issues_elem:
+        issues = issues_elem.find_next('span', class_='field__items').get_text(strip=True)
+    else:
+        issues = 'No issues found'
+    
+    return f"Title: {title_text}\nDate: {date_text}\nIssues: {issues}\n\nContent:\n{text}\n\n==\n"
 
 async def scrape_page(session, base_url, page):
-    url = f"{base_url}/{page}/" if page > 1 else base_url
+    url = f"{base_url}?page={page}"
     soup = await get_soup(session, url)
     
-    links = soup.find_all('h2', class_='elementor-post__title')
+    links = soup.find_all('div', class_='h3')
     if not links:
         print(f"No more press releases found on page {page}. Stopping.")
         return []
@@ -91,13 +80,13 @@ async def scrape_page(session, base_url, page):
 
 async def scrape_all_press_releases(base_url, max_concurrent=5):
     all_releases = []
-    page = 1
+    page = 0
     connector = aiohttp.TCPConnector(ssl=ssl_context)
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"sanders_press_releases_{timestamp}.txt"
+    filename = f"ocasio_cortez_press_releases_{timestamp}.txt"
     
     async with aiohttp.ClientSession(connector=connector) as session:
-        while page <= 425:  # Adjust this if the total number of pages changes
+        while True:
             page_releases = await scrape_page(session, base_url, page)
             if not page_releases:
                 break
@@ -115,7 +104,7 @@ async def scrape_all_press_releases(base_url, max_concurrent=5):
     return all_releases, filename
 
 if __name__ == "__main__":
-    base_url = "https://www.sanders.senate.gov/media/press-releases"
+    base_url = "https://ocasio-cortez.house.gov/media/press-releases"
     start_time = time.time()
     all_releases, filename = asyncio.run(scrape_all_press_releases(base_url))
     end_time = time.time()
