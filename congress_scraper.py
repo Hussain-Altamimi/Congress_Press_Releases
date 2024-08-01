@@ -99,7 +99,7 @@ async def scrape_all_press_releases(base_url, max_concurrent=5):
             all_releases.extend(page_releases)
             
             # Save after each page
-            with open('press_releases.txt', 'a', encoding='utf-8') as f:
+            with open('pocan_press_releases.txt', 'a', encoding='utf-8') as f:
                 for release in page_releases:
                     f.write(release)
             
