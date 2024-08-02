@@ -40,8 +40,8 @@ PIA_SERVERS = [
 ]
 
 # PIA credentials
-PIA_USERNAME = os.getenv("PIA_USERNAME", "p4203261")
-PIA_PASSWORD = os.getenv("PIA_PASSWORD", "j4bK3krFh4")
+PIA_USERNAME = os.getenv("PIA_USERNAME", "")
+PIA_PASSWORD = os.getenv("PIA_PASSWORD", "")
 
 def get_random_pia_proxy():
     server = random.choice(PIA_SERVERS)
