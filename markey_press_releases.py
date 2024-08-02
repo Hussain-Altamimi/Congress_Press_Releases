@@ -134,7 +134,7 @@ async def scrape_all_press_releases(base_url, start_page, filename, max_concurre
 
 if __name__ == "__main__":
     base_url = "https://www.markey.senate.gov/news/press-releases?pagenum_rs="
-    start_page = 359  # Set your desired starting page here
+    start_page = 0  # Set your desired starting page here
     filename = "markey_press_releases_20240802_023708.txt"  # Set your existing filename here
     
     start_time = time.time()
