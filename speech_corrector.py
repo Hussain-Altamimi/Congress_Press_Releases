@@ -1,6 +1,7 @@
 import os
 import re
 from spellchecker import SpellChecker
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 def clean_text(text):
     # Fix common formatting issues
@@ -30,35 +31,64 @@ def clean_text(text):
 def correct_spelling(text):
     spell = SpellChecker()
     words = text.split()
-    corrected_words = [spell.correction(word) if word.lower() not in spell else word for word in words]
+    corrected_words = [spell.correction(word) if spell.correction(word) is not None else word for word in words]
     return ' '.join(corrected_words)
+
+def process_release(release):
+    sections = release.split('\n\n')
+    cleaned_sections = [clean_text(section) for section in sections]
+    corrected_sections = [correct_spelling(section) for section in cleaned_sections]
+    return '\n\n'.join(corrected_sections)
 
 def process_file(input_file, output_file, chunk_size=1000):
     with open(input_file, 'r', encoding='utf-8') as file:
         content = file.read()
+    
+    releases = content.split('\n\n==\n\n')
+    processed_releases = []
+    
+    # Create new output file at the start
+    with open(output_file, 'w', encoding='utf-8') as file:
+        file.write("")
+    
+    for idx, release in enumerate(releases):
+        processed_release = process_release(release)
+        processed_releases.append(processed_release)
+        
+        if (idx + 1) % chunk_size == 0 or (idx + 1) == len(releases):
+            with open(output_file, 'a', encoding='utf-8') as file:
+                file.write('\n\n==\n\n'.join(processed_releases) + '\n\n==\n\n')
+            processed_releases = []
+        
+        print(f"Processed {idx + 1} out of {len(releases)} releases.")
 
-    cleaned_content = clean_text(content)
-    corrected_content = correct_spelling(cleaned_content)
+def process_all_files_in_directory(input_directory):
+    files = [
+        "aoc.txt",
+        "hawley.txt",
+        "lee.txt",
+        "manchin.txt",
+        "markey.txt",
+        "mtg.txt",
+        "pocan.txt",
+        "sanders.txt",
+        "stefanik.txt"
+    ]
+    
+    total_files = len(files)
 
-    words = corrected_content.split()
-    processed_content = ''
-    for i in range(0, len(words), chunk_size):
-        processed_content += ' '.join(words[i:i + chunk_size]) + ' '
-        # Save periodically
-        with open(output_file, 'w', encoding='utf-8') as file:
-            file.write(processed_content.strip() + '\n')
-        print(f"Processed {min(i + chunk_size, len(words))} out of {len(words)} words.")
-
-def process_all_files_in_directory(input_directory, output_directory):
-    for filename in os.listdir(input_directory):
-        if filename.endswith('.txt'):
+    with ProcessPoolExecutor() as executor:
+        futures = []
+        for idx, filename in enumerate(files):
             input_file = os.path.join(input_directory, filename)
-            output_file = os.path.join(output_directory, f"corrected_{filename}")
-            process_file(input_file, output_file)
-            print(f"Processed {filename} and saved as corrected_{filename}")
+            output_file = os.path.join(input_directory, f"{filename.split('.')[0]}_formatted.txt")
+            print(f"Starting processing of file {idx + 1} of {total_files}: {filename}")
+            futures.append(executor.submit(process_file, input_file, output_file))
+        
+        for future in as_completed(futures):
+            print(f"Completed processing of a file.")
 
 if __name__ == "__main__":
     input_directory = 'output'
-    output_directory = 'output'
-    process_all_files_in_directory(input_directory, output_directory)
-    print("Processing complete.")
+    process_all_files_in_directory(input_directory)
+    print("All files processed successfully.")
